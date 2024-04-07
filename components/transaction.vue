@@ -1,14 +1,7 @@
 <script setup lang="ts">
-import {useCurrency} from "~/composable/useCurrency";
-
-interface Transaction {
-  id: number;
-  created_at: string;
-  amount: number;
-  type: string | null;
-  description: string | null;
-  category: string | null;
-}
+import {useCurrency} from "~/composable/useCurrency"
+import type {Transaction} from "~/types/custom"
+import {sleep} from "@antfu/utils";
 
 const props = defineProps({
   transaction: {
@@ -17,24 +10,56 @@ const props = defineProps({
   }
 });
 
-const { currency } = useCurrency(props.transaction?.amount ?? 0, 'EUR');
+const emit = defineEmits(['deleted'])
+
+const {currency} = useCurrency(props.transaction?.amount ?? 0, 'EUR');
+
+const isLoading = ref(false)
+const toast = useToast()
+
+const supabase = useSupabaseClient()
+const deleteTransaction = async () => {
+  isLoading.value = true
+
+  try {
+    await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', props.transaction.id)
+    toast.add({
+      title: 'Transaction deleted',
+      icon: 'i-heroicons-check-circle',
+      color: 'green'
+    })
+    emit('deleted', props.transaction.id)
+  } catch (error) {
+    toast.add({
+      title: 'Transaction deleted',
+      icon: 'i-heroicons-exclamation-circle',
+      color: 'red'
+    })
+  } finally {
+    await sleep(1000)
+    isLoading.value = false
+  }
+}
 
 const items = [
-[{
-  label: 'Edit',
-  icon: 'i-heroicons-pencil-square-20-solid',
-  click: () => console.log('edit')
-},
-{
-  label: 'Delete',
-      icon:'i-heroicons-trash-20-solid',
-      click:  () => console.log('delete')
-}]
+  [{
+    label: 'Edit',
+    icon: 'i-heroicons-pencil-square-20-solid',
+    click: () => console.log('edit')
+  },
+    {
+      label: 'Delete',
+      icon: 'i-heroicons-trash-20-solid',
+      click: deleteTransaction
+    }]
 ]
-const isIncome = computed(()=> props.transaction?.type === 'Income')
+const isIncome = computed(() => props.transaction?.type === 'Income')
 
 const icon = computed(
-    () => isIncome.value  ? 'i-heroicons-arrow-up-right' : 'i-heroicons-arrow-down-left'
+    () => isIncome.value ? 'i-heroicons-arrow-up-right' : 'i-heroicons-arrow-down-left'
 )
 
 const iconColor = computed(
@@ -47,7 +72,7 @@ const iconColor = computed(
     <div class="flex items-center justify-between">
       <div class="flex items-center space-x-1">
         <UIcon :name="icon" :class="[iconColor]"/>
-        <div >{{ transaction.description }}</div>
+        <div>{{ transaction.description }}</div>
       </div>
       <div>
         <UBadge color="white" v-if="transaction.category">{{ transaction.category }}</UBadge>
@@ -57,7 +82,7 @@ const iconColor = computed(
       <div>{{ currency }}</div>
       <div>
         <UDropdown :items="items" :propper="{placement: 'bottom-start'}">
-          <UButton color="white" variant="ghost" trailing-icon="i-heroicons-ellipsis-horizontal" />
+          <UButton color="white" variant="ghost" trailing-icon="i-heroicons-ellipsis-horizontal" :loading="isLoading"/>
         </UDropdown>
       </div>
     </div>
