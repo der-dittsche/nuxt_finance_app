@@ -6,7 +6,6 @@ const selectedView = ref(transactionViewOptions[1])
 
 const supabase = useSupabaseClient()
 
-
 const isLoading = ref(false)
 const fetchTransactions = async () => {
   isLoading.value = true
@@ -60,6 +59,8 @@ const expenseTotal = computed(
     () => expense.value.reduce((sum, transaction) => sum + transaction.amount, 0)
 )
 
+const isOpen = ref(false)
+
 </script>
 
 <template>
@@ -80,7 +81,10 @@ const expenseTotal = computed(
       </div>
     </div>
     <div>
-      <UButton icon="i-heroicons-plus-circle" color="white" variant="solid" label="Add" />
+      <UButton icon="i-heroicons-plus-circle" color="white" variant="solid" label="Add" @click="isOpen = !isOpen"/>
+      <ModalTransaction
+          v-model="isOpen"
+      />
     </div>
   </section>
 
