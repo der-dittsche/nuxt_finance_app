@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import {z} from 'zod'
-import { transactionType, transactionCategories } from "~/constants";
+import { z } from 'zod'
+import {transactionType, transactionCategories} from "~/constants";
 
 const props = defineProps({
   modelValue: Boolean
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'saved'])
 
 // schema definition find on https://zod.dev/
 
@@ -33,9 +33,42 @@ const schema = z.intersection(
     defaultSchema
 )
 const form = ref()
+const isLoading = ref(false)
+const supabase = useSupabaseClient()
+const toast = useToast()
 
 const save = async () => {
-  form.value.validate()
+  isLoading.value = true
+  try {
+    const transactionData: any = {
+      type: transactionInput.value.type,
+      amount: transactionInput.value.amount,
+      created_at: transactionInput.value.created_at,
+      description: transactionInput.value.description,
+      categories: transactionInput.value.categories
+    }
+    console.log(transactionData)
+    const { error }:any = await supabase.from('transactions')
+        .upsert(transactionData)
+    if (!error) {
+      toast.add({
+        'title': 'Transaction saved',
+        'icon': 'i-heroicons-check-circle'
+      })
+      isOpen.value = false
+      emit('saved')
+      return
+    }
+  } catch (e:any) {
+    toast.add({
+      title: 'Transaction not saved',
+      description: e.message,
+      icon: 'i-heroicons-exclamation-circle',
+      color: 'red'
+    })
+  } finally {
+    isLoading.value = false
+  }
 }
 
 const transactionInput = ref({
@@ -65,7 +98,7 @@ const isOpen = computed({
                    @click="isOpen = !isOpen"/>
         </div>
       </template>
-      <UForm :state="transactionInput" @submit.prevent="save" :ref="form" :schema="schema">
+      <UForm :state="transactionInput" @submit="save" :ref="form" :schema="schema">
         <UFormGroup label="Transaction Type" :required="true" name="type" class="mb-4">
           <USelect
               placeholder="select the transaction type"
@@ -94,7 +127,8 @@ const isOpen = computed({
               v-model="transactionInput.description"
           />
         </UFormGroup>
-        <UFormGroup label="Category" :required="true" name="category" class="mb-4" v-if="transactionInput.type == 'Expense'">
+        <UFormGroup label="Category" :required="true" name="category" class="mb-4"
+                    v-if="transactionInput.type == 'Expense'">
           <USelect
               placeholder="select a category"
               :options="transactionCategories"
@@ -103,7 +137,7 @@ const isOpen = computed({
           />
         </UFormGroup>
 
-        <UButton type="submit" color="black" variant="solid" label="save"/>
+        <UButton type="submit" color="black" variant="solid" label="save" :loading="isLoading"/>
       </UForm>
 
     </UCard>
