@@ -7,15 +7,17 @@ const props = defineProps({
   lastAmount: {type: Number, default: 0},
   color: String,
   loading: Boolean
-})
+});
+
+const { amount } = toRefs(props);
 
 const trendingUp = computed(
     () => props.lastAmount <= props.amount
-)
+);
 
 const icon = computed(
     () => trendingUp.value ? 'i-heroicons-arrow-trending-up' : 'i-heroicons-arrow-trending-down',
-)
+);
 
 const percentageTrend = computed(() => {
   if ((props.amount as number) === 0 || (props.lastAmount as number) === 0) return '∞%';
@@ -24,10 +26,11 @@ const percentageTrend = computed(() => {
   const lower = Math.min(props.amount as number, props.lastAmount as number);
   const ratio = ((bigger - lower) / lower) * 100;
 
-  return `${Math.ceil(ratio)}`;
-})
+  return `${Math.ceil(ratio)}%`;
+});
 
-const {currency: euroPrice}  = useCurrency(props.amount, "EUR")
+// Pass amount Ref directly to useCurrency
+const {currency: euroPrice}  = useCurrency(amount, "EUR");
 
 </script>
 

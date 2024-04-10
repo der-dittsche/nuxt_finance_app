@@ -6,3 +6,8 @@ export type Transaction = {
     description: string | null;
     category: string | null;
 }
+
+export type Period = {
+    from: Date,
+    to: Date
+}
