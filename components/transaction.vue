@@ -2,6 +2,7 @@
 import {useCurrency} from "~/composable/useCurrency"
 import type {Transaction} from "~/types/custom"
 import {sleep} from "@antfu/utils";
+import {useAppToast} from "~/composable/useAppToast";
 
 const props = defineProps({
   transaction: {
@@ -10,12 +11,14 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['deleted'])
+const isOpen = ref(false)
+
+const emit = defineEmits(['deleted', 'edited'])
 
 const {currency} = useCurrency(props.transaction?.amount ?? 0, 'EUR');
 
 const isLoading = ref(false)
-const toast = useToast()
+const { toastError, toastSuccess } = useAppToast()
 
 const supabase = useSupabaseClient()
 const deleteTransaction = async () => {
@@ -26,18 +29,10 @@ const deleteTransaction = async () => {
         .from('transactions')
         .delete()
         .eq('id', props.transaction.id)
-    toast.add({
-      title: 'Transaction deleted',
-      icon: 'i-heroicons-check-circle',
-      color: 'green'
-    })
+    toastSuccess({title: 'Transaction deleted'})
     emit('deleted', props.transaction.id)
   } catch (error) {
-    toast.add({
-      title: 'Transaction deleted',
-      icon: 'i-heroicons-exclamation-circle',
-      color: 'red'
-    })
+    toastError({title: 'Transaction was not deleted'})
   } finally {
     await sleep(1000)
     isLoading.value = false
@@ -48,7 +43,7 @@ const items = [
   [{
     label: 'Edit',
     icon: 'i-heroicons-pencil-square-20-solid',
-    click: () => console.log('edit')
+    click: () => isOpen.value = true
   },
     {
       label: 'Delete',
@@ -83,6 +78,7 @@ const iconColor = computed(
       <div>
         <UDropdown :items="items" :propper="{placement: 'bottom-start'}">
           <UButton color="white" variant="ghost" trailing-icon="i-heroicons-ellipsis-horizontal" :loading="isLoading"/>
+          <modal-transaction v-model="isOpen" :transaction="transaction" @saved="emit('edited')" />
         </UDropdown>
       </div>
     </div>

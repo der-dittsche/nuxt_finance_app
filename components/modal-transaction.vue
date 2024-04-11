@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { z } from 'zod'
+import {z} from 'zod'
 import {transactionType, transactionCategories} from "~/constants";
+import {useAppToast} from "~/composable/useAppToast";
 
 const props = defineProps({
-  modelValue: Boolean
+  modelValue: Boolean,
+  transaction: {
+    type: Object,
+    required: false
+  }
 })
+
+const isEditing = computed(() => !!props.transaction)
 
 const emit = defineEmits(['update:modelValue', 'saved'])
 
@@ -32,10 +39,11 @@ const schema = z.intersection(
     z.discriminatedUnion('type', [incomeSchema, expenseSchema, investmentSchema, savingSchema]),
     defaultSchema
 )
+
 const form = ref()
 const isLoading = ref(false)
 const supabase = useSupabaseClient()
-const toast = useToast()
+const { toastError, toastSuccess } = useAppToast()
 
 const save = async () => {
   isLoading.value = true
@@ -47,41 +55,55 @@ const save = async () => {
       description: transactionInput.value.description,
       categories: transactionInput.value.categories
     }
-    console.log(transactionData)
-    const { error }:any = await supabase.from('transactions')
-        .upsert(transactionData)
+    const {error}: any = await supabase.from('transactions')
+        .upsert({...transactionData, id: props.transaction?.id})
     if (!error) {
-      toast.add({
-        'title': 'Transaction saved',
-        'icon': 'i-heroicons-check-circle'
+      toastSuccess({
+        'title': 'Transaction saved'
       })
       isOpen.value = false
       emit('saved')
       return
     }
-  } catch (e:any) {
-    toast.add({
+  } catch (e: any) {
+    toastError({
       title: 'Transaction not saved',
-      description: e.message,
-      icon: 'i-heroicons-exclamation-circle',
-      color: 'red'
+      description: e.message
     })
   } finally {
     isLoading.value = false
   }
 }
 
-const transactionInput = ref({
+const initialState = isEditing.value ? {
+  type: props.transaction!.type,
+  amount: props.transaction!.amount,
+  created_at: props.transaction!.created_at.split('T')[0],
+  description: props.transaction!.description,
+  categories: props.transaction!.categories
+} : {
   type: undefined,
   amount: 0,
   created_at: undefined,
   description: undefined,
   categories: undefined
-})
+}
+
+const transactionInput = ref({...initialState})
+
+const resetForm = () => {
+  Object.assign(transactionInput.value, initialState)
+  if (form.value) {
+    form.value.clear()
+  }
+}
 
 const isOpen = computed({
   get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value)
+  set: (value) => {
+    if (!value) resetForm()
+    emit('update:modelValue', value)
+  }
 })
 
 </script>
@@ -92,7 +114,7 @@ const isOpen = computed({
       <template #header>
         <div class="flex items-center justify-between">
           <h3 class="text-gray-500 dark:text-gray-400">
-            Add Transaction
+            {{ isEditing ? 'Edit' : 'Add' }} Transaction
           </h3>
           <UButton color="gray" variant="ghost" icon="i-heroicons-x-mark-20-solid" class="-my-1"
                    @click="isOpen = !isOpen"/>
@@ -101,6 +123,7 @@ const isOpen = computed({
       <UForm :state="transactionInput" @submit="save" :ref="form" :schema="schema">
         <UFormGroup label="Transaction Type" :required="true" name="type" class="mb-4">
           <USelect
+              :disabled="isEditing"
               placeholder="select the transaction type"
               :options="transactionType"
               v-model="transactionInput.type"
